@@ -96,7 +96,7 @@ test = pd.read_json('test.json', typ = 'frame', encoding='utf-8')
 
 # In[ ]:
 
-
+## test inference
 warnings.filterwarnings(action='ignore')
 song_test_pred = []
 for i, songs in enumerate(test.songs):
@@ -109,6 +109,8 @@ for i, songs in enumerate(test.songs):
         if tags:
             tag_index = list(map(lambda x : tags_dict[x], tags))
             song_i_pred = np.array(tag_co_occurrence_csr[:,tag_index].sum(axis=1))[:,0].argsort()[:-101:-1]
+            song_test_pred += [song_i_pred]
+            continue
         else:
             song_test_pred += [train_songs_co_occurrence_rank[:100].tolist()]
         continue
@@ -146,7 +148,7 @@ np.array(tag_co_occurrence_csr.sum(axis=0))[0,:][np.array(tag_co_occurrence_csr.
 warnings.filterwarnings(action='ignore')
 tag_test_pred = []
 tag_top10 = [train_tags_co_occurrence_rank[:10]]
-for i, songs in enumerate(test.songs):
+for i, songs in enumerate(test.songs):    
     if i > 0 and i % 1000 == 0:
         print(i, "th completed", sep="")
     
@@ -154,8 +156,9 @@ for i, songs in enumerate(test.songs):
     if not songs:
         if tags:
             tag_index = list(map(lambda x : tags_dict[x], tags))
-            tag_i_pred = np.array(tag_tag_co_occurrence_csr[tag_index,:].sum(axis=0))[0,:].argsort()[:-11:-1]
-        
+            tag_i_pred = list(map(lambda x : index_tags[x], np.array(tag_tag_co_occurrence_csr[tag_index,:].sum(axis=0))[0,:].argsort()[:-11:-1]))
+            tag_test_pred += [tag_i_pred]
+            continue
         else:
             tag_test_pred += tag_top10
         continue
@@ -193,3 +196,74 @@ test_result = re.sub("\'", '\"', str(test_result))
 
 with open('results.json', 'w', encoding='utf-8') as f:
     f.write(str(test_result))
+
+    
+## validataion inference
+warnings.filterwarnings(action='ignore')
+song_val_pred = []
+for i, songs in enumerate(val.songs):
+    if i > 0 and i % 1000 == 0:
+        print(i, "th completed", sep="")
+    
+    song_i_pred = []
+    if not songs:
+        tags = val.tags[i]
+        if tags:
+            tag_index = list(map(lambda x : tags_dict[x], tags))
+            song_i_pred = np.array(tag_co_occurrence_csr[:,tag_index].sum(axis=1))[:,0].argsort()[:-101:-1]
+            song_val_pred += [song_i_pred]
+            continue
+        else:
+            song_val_pred += [train_songs_co_occurrence_rank[:100].tolist()]
+        continue
+    
+    
+    song_i_candidate = np.array(song_co_occurrence_csr[songs,:].sum(axis=0))[0,:].argsort()[::-1]
+    
+    count = 0
+    for song in song_i_candidate:
+        if not song in songs:
+            song_i_pred += [song]
+            count += 1
+            if count == 100: break
+    if count < 100:
+        for song in train_songs_co_occurrence_rank:
+            if not song in songs:
+                song_i_pred += [song]
+                count += 1
+                if count == 100: break
+    song_val_pred += [song_i_pred]
+warnings.filterwarnings(action='default')
+
+warnings.filterwarnings(action='ignore')
+tag_val_pred = []
+tag_top10 = [train_tags_co_occurrence_rank[:10]]
+for i, songs in enumerate(val.songs):    
+    if i > 0 and i % 1000 == 0:
+        print(i, "th completed", sep="")
+    
+    tag_i_pred = []
+    if not songs:
+        if tags:
+            tag_index = list(map(lambda x : tags_dict[x], tags))
+            tag_i_pred = list(map(lambda x : index_tags[x], np.array(tag_tag_co_occurrence_csr[tag_index,:].sum(axis=0))[0,:].argsort()[:-11:-1]))
+            tag_val_pred += [tag_i_pred]
+            continue
+        else:
+            tag_val_pred += tag_top10
+        continue
+    
+    tag_i_candidate = np.array(tag_co_occurrence_csr[songs,:].sum(axis=0))[0,:].argsort()[::-1]
+    
+    tags = val.tags[i]
+    count = 0
+    for tag_index in tag_i_candidate:
+        tag = index_tags[tag_index]
+        if not tag in tags:
+            tag_i_pred += [tag]
+            count += 1
+            if count == 10: break
+    
+
+    tag_val_pred += [tag_i_pred]
+warnings.filterwarnings(action='default')
